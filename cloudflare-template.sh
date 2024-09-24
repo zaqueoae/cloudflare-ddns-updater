@@ -56,9 +56,19 @@ record=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_identi
 ## Check if the domain has an A record
 ###########################################
 if [[ $record == *"\"count\":0"* ]]; then
-  logger -s "DDNS Updater: Record does not exist, perhaps create one first? (${ip} for ${record_name})"
-  exit 1
-fi
+  logger "DDNS Updater: Record does not exist, creating one. (${ip} for ${record_name})"
+  create=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records" \
+                      -H "X-Auth-Email: $auth_email" \
+                      -H "$auth_header $auth_key" \
+                      -H "Content-Type: application/json" \
+                      --data "{\"type\":\"A\",\"name\":\"$record_name\",\"content\":\"$ip\",\"ttl\":$ttl,\"proxied\":${proxy}}")
+  if [[ $create == *"\"success\":false"* ]]; then
+    logger -s "DDNS Updater: Failed to create DNS record. DUMPING RESULTS:\n$create"
+    exit 1
+  else
+    logger "DDNS Updater: Successfully created DNS record. (${ip} for ${record_name})"
+    exit 0
+  fi
 
 ###########################################
 ## Get existing IP
